@@ -1,5 +1,6 @@
 pub mod sensor;
-pub mod battery;
+mod battery;
+mod cpu;
 mod config;
 
 use std::time::Duration;
@@ -10,6 +11,7 @@ use std::fs::{File, create_dir};
 use std::io::Write;
 
 use battery::Battery;
+use cpu::CPU;
 use sensor::Sensor;
 use config::Config;
 
@@ -18,6 +20,7 @@ fn main() {
     let poll_period = Duration::new(config.get_poll_period(), 0);
     let mut sensors: Vec<Box<dyn Sensor>> = Vec::new();
     sensors.push(Box::new(Battery::new(0)));
+    sensors.push(Box::new(CPU));
     let home = env::var("HOME").unwrap();
 
     // Mark start of logging with zero values
@@ -31,7 +34,7 @@ fn main() {
         }
 
         let mut f = File::options().create(true).append(true).open(path).unwrap();
-        let _ = f.write_fmt(format_args!("0,0"));
+        let _ = f.write_fmt(format_args!("0,0\n"));
     }
 
     // Main logging loop: go through each sensor in turn and record measurements
@@ -41,7 +44,7 @@ fn main() {
             let meas = sensor.measure();
             let path = PathBuf::from(format!("{home}/.smond_logs/{ident}.csv"));
 
-            let mut f = File::create(path).unwrap();
+            let mut f = File::options().write(true).append(true).open(path).unwrap();
             let _ = f.write_fmt(format_args!("{}", meas.as_csv_line()));
         }
         sleep(poll_period);
